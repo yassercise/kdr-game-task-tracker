@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KDR Racing Game — Task Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:13px;background:#f5f6fa;color:#1a1a2e}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:220px;min-width:220px;background:#1a1a2e;display:flex;flex-direction:column;padding:0}
+.sidebar-logo{padding:20px 16px 12px;border-bottom:1px solid #2d2d44}
+.sidebar-logo h2{font-size:13px;font-weight:700;color:#FFD100;letter-spacing:.5px}
+.sidebar-logo p{font-size:10px;color:#8A9BB5;margin-top:2px}
+.sidebar-nav{padding:12px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:12px;color:#8A9BB5;cursor:pointer;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{background:#2d2d44;color:#fff}
+.nav-item.active{background:#2d2d44;color:#fff;border-left-color:#FFD100}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.sidebar-bottom{padding:12px 16px;border-top:1px solid #2d2d44}
+.sidebar-bottom p{font-size:10px;color:#555;line-height:1.5}
+
+/* MAIN */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.topbar{background:#fff;border-bottom:1px solid #e8e8f0;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar h3{font-size:15px;font-weight:700;color:#1a1a2e}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.content{flex:1;overflow-y:auto;padding:20px}
+
+/* BUTTONS */
+.btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.btn-primary{background:#6c63ff;color:#fff}
+.btn-primary:hover{background:#5a52d5}
+.btn-secondary{background:#f0f0f8;color:#555;border:1px solid #e8e8f0}
+.btn-secondary:hover{background:#e8e8f0}
+.btn-danger{background:#fff5f5;color:#e74c3c;border:1px solid #fdd}
+.btn-danger:hover{background:#ffe8e8}
+.btn-sm{padding:3px 10px;font-size:11px}
+.btn-xs{padding:2px 7px;font-size:10px;border-radius:5px}
+
+/* CARDS */
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);padding:16px;margin-bottom:12px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-title{font-size:13px;font-weight:700;color:#1a1a2e}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.stat-num{font-size:26px;font-weight:800;color:#1a1a2e}
+.stat-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.stat-card.blue .stat-num{color:#6c63ff}
+.stat-card.green .stat-num{color:#27ae60}
+.stat-card.orange .stat-num{color:#e67e22}
+.stat-card.red .stat-num{color:#e74c3c}
+
+/* TASK LIST */
+.task-group{margin-bottom:20px}
+.task-group-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;user-select:none}
+.task-group-header h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888}
+.task-group-toggle{font-size:10px;color:#aaa;transition:transform .2s}
+.task-group-toggle.collapsed{transform:rotate(-90deg)}
+.task-count{background:#f0f0f8;color:#888;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:600}
+
+.task-item{background:#fff;border-radius:10px;border:1px solid #f0f0f8;margin-bottom:6px;transition:all .15s}
+.task-item:hover{border-color:#e0e0f0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.task-item.done .task-title{text-decoration:line-through;color:#aaa}
+.task-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+.task-expand{color:#ccc;font-size:11px;transition:transform .2s;flex-shrink:0}
+.task-expand.open{transform:rotate(90deg)}
+.task-check{width:16px;height:16px;border-radius:4px;border:2px solid #ddd;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s}
+.task-check.checked{background:#27ae60;border-color:#27ae60;color:#fff}
+.task-check.in-progress{background:#6c63ff;border-color:#6c63ff;color:#fff}
+.task-title{flex:1;font-size:12px;font-weight:600;color:#2d2d44}
+.task-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.badge-owner{background:#f0f0f8;color:#666}
+.badge-due{background:#fff8e6;color:#d4a000}
+.badge-due.overdue{background:#fff0f0;color:#e74c3c}
+.badge-priority-high{background:#fff0f0;color:#e74c3c}
+.badge-priority-medium{background:#fff8e6;color:#d4a000}
+.badge-priority-low{background:#f0f8f0;color:#27ae60}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-todo{background:#ddd}
+.dot-progress{background:#6c63ff}
+.dot-done{background:#27ae60}
+.dot-blocked{background:#e74c3c}
+
+.task-body{padding:0 14px 12px 44px;display:none}
+.task-body.open{display:block}
+
+/* SUBTASKS */
+.subtasks{margin-bottom:10px}
+.subtask-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f5f5}
+.subtask-item:last-child{border-bottom:none}
+.subtask-check{width:13px;height:13px;border-radius:3px;border:1.5px solid #ddd;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.subtask-check.checked{background:#27ae60;border-color:#27ae60;color:#fff}
+.subtask-text{font-size:11px;color:#555;flex:1}
+.subtask-text.done{text-decoration:line-through;color:#aaa}
+.subtask-del{color:#ddd;cursor:pointer;font-size:11px}
+.subtask-del:hover{color:#e74c3c}
+.add-subtask{display:flex;gap:6px;margin-top:6px}
+.add-subtask input{flex:1;border:1px solid #e8e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none}
+.add-subtask input:focus{border-color:#6c63ff}
+
+/* DEPENDENCIES */
+.deps-section{margin-bottom:10px}
+.dep-tag{display:inline-flex;align-items:center;gap:4px;background:#f0f0f8;border-radius:6px;padding:2px 8px;font-size:10px;color:#666;margin:2px}
+.dep-tag .dep-del{cursor:pointer;color:#ccc}
+.dep-tag .dep-del:hover{color:#e74c3c}
+
+/* NOTES */
+.note-item{background:#fafafa;border:1px solid #f0f0f8;border-radius:8px;padding:10px;margin-bottom:8px}
+.note-meta{font-size:10px;color:#aaa;margin-bottom:4px}
+.note-text{font-size:12px;color:#444;line-height:1.5;white-space:pre-wrap}
+.note-del{float:right;color:#ddd;cursor:pointer;font-size:11px}
+.note-del:hover{color:#e74c3c}
+.add-note textarea{width:100%;border:1px solid #e8e8f0;border-radius:8px;padding:8px;font-size:12px;resize:vertical;min-height:60px;outline:none;font-family:inherit}
+.add-note textarea:focus{border-color:#6c63ff}
+
+/* LINKS */
+.link-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5}
+.link-item:last-child{border-bottom:none}
+.link-icon{font-size:14px}
+.link-label{font-size:12px;color:#6c63ff;text-decoration:none;flex:1}
+.link-label:hover{text-decoration:underline}
+.link-del{color:#ddd;cursor:pointer;font-size:11px}
+.link-del:hover{color:#e74c3c}
+.add-link{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.add-link input{border:1px solid #e8e8f0;border-radius:6px;padding:5px 8px;font-size:11px;outline:none}
+.add-link input:focus{border-color:#6c63ff}
+.add-link input.inp-label{width:140px}
+.add-link input.inp-url{flex:1;min-width:200px}
+
+/* ASSETS SECTION */
+.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:16px}
+.asset-card{background:#fff;border:1px solid #f0f0f8;border-radius:10px;padding:12px}
+.asset-card-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.asset-icon{font-size:20px;flex-shrink:0}
+.asset-card-title{font-size:12px;font-weight:600;color:#1a1a2e;line-height:1.3}
+.asset-card-cat{font-size:10px;color:#888;margin-bottom:6px}
+.asset-card-link{font-size:11px;color:#6c63ff;text-decoration:none;word-break:break-all}
+.asset-card-link:hover{text-decoration:underline}
+.asset-card-actions{display:flex;justify-content:flex-end;margin-top:8px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:24px;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.15);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:16px;color:#1a1a2e}
+.form-row{margin-bottom:12px}
+.form-label{font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block}
+.form-input{width:100%;border:1.5px solid #e8e8f0;border-radius:8px;padding:7px 10px;font-size:12px;color:#1a1a2e;background:#fafafa;outline:none;font-family:inherit}
+.form-input:focus{border-color:#6c63ff}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.modal-btns{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+
+/* FILTERS */
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-select{border:1.5px solid #e8e8f0;border-radius:8px;padding:5px 10px;font-size:11px;color:#555;background:#fff;outline:none;cursor:pointer}
+.filter-select:focus{border-color:#6c63ff}
+.search-input{border:1.5px solid #e8e8f0;border-radius:8px;padding:5px 10px;font-size:11px;outline:none;width:200px}
+.search-input:focus{border-color:#6c63ff}
+
+/* PROGRESS BAR */
+.progress-bar{height:4px;background:#f0f0f8;border-radius:2px;margin-top:4px;overflow:hidden}
+.progress-fill{height:100%;background:#6c63ff;border-radius:2px;transition:width .3s}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px;color:#aaa;font-size:12px}
+
+/* LAUNCH BADGE */
+.launch-badge{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e74c3c;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;color:#e74c3c;animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(231,76,60,.3)}70%{box-shadow:0 0 0 6px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.launch-dot{width:6px;height:6px;border-radius:50%;background:#e74c3c;animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <h2>KDR RACING GAME</h2>
+      <p>Campaign Task Tracker</p>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="nav-icon">⊞</span> Dashboard</div>
+      <div class="nav-item" onclick="showPage('tasks')" id="nav-tasks"><span class="nav-icon">✓</span> All Tasks</div>
+      <div class="nav-item" onclick="showPage('assets')" id="nav-assets"><span class="nav-icon">🔗</span> Campaign Assets</div>
+    </div>
+    <div class="sidebar-bottom">
+      <p>Launch: Aug 12, 2026</p>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <h3 id="page-title">Dashboard</h3>
+        <div class="launch-badge"><span class="launch-dot"></span> Aug 12, 2026</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openAddTask()">+ Add Task</button>
+      </div>
+    </div>
+    <div class="content" id="main-content"></div>
+  </div>
+</div>
+
+<!-- ADD/EDIT TASK MODAL -->
+<div class="modal-overlay" id="task-modal" onclick="handleModalClick(event)">
+  <div class="modal">
+    <h3 id="modal-title">Add Task</h3>
+    <div class="form-row">
+      <label class="form-label">Task Title</label>
+      <input type="text" class="form-input" id="f-title" placeholder="What needs to be done?"/>
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Category</label>
+        <select class="form-input" id="f-cat"></select>
+      </div>
+      <div>
+        <label class="form-label">Owner</label>
+        <select class="form-input" id="f-owner"></select>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Priority</label>
+        <select class="form-input" id="f-priority">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Due Date</label>
+        <input type="date" class="form-input" id="f-due"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Status</label>
+      <select class="form-input" id="f-status">
+        <option value="todo">To Do</option>
+        <option value="progress">In Progress</option>
+        <option value="done">Done</option>
+        <option value="blocked">Blocked</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="f-notes" rows="3" placeholder="Any context or details..."></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ASSET MODAL -->
+<div class="modal-overlay" id="asset-modal" onclick="handleModalClick(event)">
+  <div class="modal">
+    <h3>Add Campaign Asset</h3>
+    <div class="form-row">
+      <label class="form-label">Asset Name</label>
+      <input type="text" class="form-input" id="a-title" placeholder="e.g. Hero Visual 4:5"/>
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Category</label>
+        <select class="form-input" id="a-cat">
+          <option>Visuals & Design</option>
+          <option>Videos</option>
+          <option>Documents</option>
+          <option>Brand Assets</option>
+          <option>Influencer Content</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Icon</label>
+        <select class="form-input" id="a-icon">
+          <option value="🖼">🖼 Image</option>
+          <option value="🎬">🎬 Video</option>
+          <option value="📄">📄 Document</option>
+          <option value="🔗">🔗 Link</option>
+          <option value="📊">📊 Spreadsheet</option>
+          <option value="🎨">🎨 Design</option>
+          <option value="📁">📁 Folder</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">URL / Link</label>
+      <input type="text" class="form-input" id="a-url" placeholder="https://..."/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('asset-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAsset()">Save Asset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY='kdr-tasks-v1';
+const ASSETS_KEY='kdr-assets-v1';
+
+const CATEGORIES=['Pre-Launch Content','Teaser Phase','Launch','Brand Collaborations','Influencers','Bahrain Sports City','Competition & Leaderboard','UGC','Email / CRM','Video Production','Design','Post-Campaign'];
+const OWNERS=['Yasir','Design Team','Videography','Digital Solutions','Corporate Comms','CRM','KDR Channel','Legal','Management'];
+const CAT_COLORS={'Pre-Launch Content':'4A90D9','Teaser Phase':'F5A623','Launch':'E74C3C','Brand Collaborations':'27AE60','Influencers':'9B59B6','Bahrain Sports City':'E67E22','Competition & Leaderboard':'2980B9','UGC':'16A085','Email / CRM':'D35400','Video Production':'C0392B','Design':'8E44AD','Post-Campaign':'95A5A6'};
+
+const DEFAULT_TASKS=[
+  {id:'t1',title:'Finalize launch video edit (Deepal vehicle swap)',cat:'Video Production',owner:'Videography',priority:'high',status:'progress',due:'2026-08-04',notes:'Replace Jetour with Deepal in video — Deepal is now Platinum sponsor',subtasks:[{id:'s1',text:'Swap vehicle CGI animation',done:false},{id:'s2',text:'Final color grade',done:false},{id:'s3',text:'Export in all formats',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t2',title:'Contact Corporate Comms re: influencer outreach',cat:'Influencers',owner:'Yasir',priority:'high',status:'todo',due:'2026-07-14',notes:'Need to initiate contact for Tekkenmaster, 5osh Fkra, Charlie/Gulf Insider + 2 GCC',subtasks:[{id:'s1',text:'Draft influencer brief',done:false},{id:'s2',text:'Send to Corporate Comms',done:false},{id:'s3',text:'Follow up on GCC influencers (Qatar + Kuwait)',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t3',title:'Get influencer contracts signed',cat:'Influencers',owner:'Corporate Comms',priority:'high',status:'todo',due:'2026-07-25',notes:'Budget: BD 2,000 total across 5 influencers',subtasks:[{id:'s1',text:'Draft contracts',done:false},{id:'s2',text:'Send to influencers',done:false},{id:'s3',text:'Collect signed copies',done:false}],deps:['t2'],links:[],taskNotes:[]},
+  {id:'t4',title:'Brief influencers on campaign and game',cat:'Influencers',owner:'Corporate Comms',priority:'high',status:'todo',due:'2026-08-05',notes:'Give early access before Aug 12 launch',subtasks:[{id:'s1',text:'Share game link',done:false},{id:'s2',text:'Share campaign brief and key messages',done:false},{id:'s3',text:'Review and approve content before posting',done:false}],deps:['t3'],links:[],taskNotes:[]},
+  {id:'t5',title:'Confirm and brief all 5 brand collab partners',cat:'Brand Collaborations',owner:'Yasir',priority:'high',status:'progress',due:'2026-07-20',notes:'Deepal=Platinum, Jetour=Gold, Toyota=Gold, Lexus=Gold, iCAUR=Silver. All raffle sponsors.',subtasks:[{id:'s1',text:'Send final sponsorship confirmation to all 5',done:false},{id:'s2',text:'Brief on content requirements',done:false},{id:'s3',text:'Get content approved before Aug 12',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t6',title:'Align with Toyota and Lexus on messaging',cat:'Brand Collaborations',owner:'Corporate Comms',priority:'high',status:'todo',due:'2026-07-22',notes:'Ms. Wasna approval needed for influencer list. Tone must align with Toyota/Lexus guidelines.',subtasks:[{id:'s1',text:'Send master visual + adaptations',done:false},{id:'s2',text:'Share influencer list for approval',done:false},{id:'s3',text:'Confirm giveaway prize sponsorship',done:false}],deps:['t5'],links:[],taskNotes:[]},
+  {id:'t7',title:'Setup CRM email automation',cat:'Email / CRM',owner:'CRM',priority:'high',status:'todo',due:'2026-08-08',notes:'4 emails: welcome auto, midway Aug 26, last chance Sep 7, winners Sep 15',subtasks:[{id:'s1',text:'Meet with CRM head',done:false},{id:'s2',text:'Set up welcome email automation',done:false},{id:'s3',text:'Draft all 4 email templates',done:false},{id:'s4',text:'Test OTP and sign-up flow',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t8',title:'Design all teaser posts (5 weekly + 3 official)',cat:'Teaser Phase',owner:'Design Team',priority:'high',status:'progress',due:'2026-08-11',notes:'Weekly Thursdays: Jul 10, 17, 24, 31, Aug 7. Official teasers: Aug 8, 9, 11 (Tomorrow.)',subtasks:[{id:'s1',text:'Week 1 — Camel in souq carousel',done:true},{id:'s2',text:'Week 2 — Camel teaser #2',done:false},{id:'s3',text:'Week 3 — Camel teaser #3',done:false},{id:'s4',text:'Week 4 — Camel teaser #4',done:false},{id:'s5',text:'Week 5 — Camel teaser #5 (Aug 7)',done:false},{id:'s6',text:'Official teaser #1 — Helmet (Aug 8)',done:false},{id:'s7',text:'Official teaser #2 — Circuit (Aug 9)',done:false},{id:'s8',text:'Official teaser #3 — Tomorrow. (Aug 11)',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t9',title:'Design launch day content package',cat:'Launch',owner:'Design Team',priority:'high',status:'todo',due:'2026-08-10',notes:'Hero visual + all 5 brand collab posts + launch video posted simultaneously Aug 12',subtasks:[{id:'s1',text:'Hero visual 4:5 final version',done:false},{id:'s2',text:'Hero visual 9:16 adaptation',done:false},{id:'s3',text:'Hero visual 16:9 adaptation',done:false},{id:'s4',text:'All 5 brand collab post designs',done:false},{id:'s5',text:'Caption copy for all posts',done:false}],deps:['t5'],links:[],taskNotes:[]},
+  {id:'t10',title:'Confirm game is live and tested',cat:'Launch',owner:'Digital Solutions',priority:'high',status:'todo',due:'2026-08-10',notes:'Sign-up, OTP, leaderboard, all 5 cars playable, mobile + desktop tested',subtasks:[{id:'s1',text:'Full QA test on mobile',done:false},{id:'s2',text:'Full QA test on desktop',done:false},{id:'s3',text:'Leaderboard functioning correctly',done:false},{id:'s4',text:'OTP sign-up flow tested',done:false},{id:'s5',text:'All 5 cars accessible and working',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t11',title:'Plan BSC event activation (Aug 14-21)',cat:'Bahrain Sports City',owner:'Yasir',priority:'medium',status:'todo',due:'2026-08-07',notes:'iCAUR exclusive branding at eSports section. Game playable on screens. Booth setup.',subtasks:[{id:'s1',text:'Confirm booth size and location',done:false},{id:'s2',text:'Design BSC event banners',done:false},{id:'s3',text:'Set up screens and game terminals',done:false},{id:'s4',text:'Brief on-ground team',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t12',title:'Design leaderboard update posts (weekly)',cat:'Competition & Leaderboard',owner:'Design Team',priority:'medium',status:'todo',due:'2026-08-18',notes:'Weekly updates: Aug 19, 26, Sep 2. Last chance posts Sep 7-12.',subtasks:[{id:'s1',text:'Leaderboard update template design',done:false},{id:'s2',text:'Last chance post design',done:false},{id:'s3',text:'Winners announcement post design',done:false}],deps:['t10'],links:[],taskNotes:[]},
+  {id:'t13',title:'Raise creative job with Ronald',cat:'Design',owner:'Yasir',priority:'high',status:'progress',due:'2026-07-13',notes:'Email sent. Awaiting response on briefing template. ~30-40 designs needed in 2 weeks.',subtasks:[{id:'s1',text:'Send initial email to Ronald',done:true},{id:'s2',text:'Fill in briefing template',done:false},{id:'s3',text:'Submit formal job number',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t14',title:'Finalize game name (Floored or Full Send)',cat:'Launch',owner:'Yasir',priority:'medium',status:'todo',due:'2026-07-20',notes:'Both shortlisted. Final decision needed before creative goes to print.',subtasks:[{id:'s1',text:'Present both options to Matthew',done:false},{id:'s2',text:'Get Mr. Fawaz sign-off',done:false}],deps:[],links:[],taskNotes:[]},
+  {id:'t15',title:'Get legal sign-off on competition terms',cat:'Competition & Leaderboard',owner:'Legal',priority:'high',status:'todo',due:'2026-07-25',notes:'Prize structure, eligibility, winner announcement process all need legal review',subtasks:[{id:'s1',text:'Draft competition T&Cs',done:false},{id:'s2',text:'Submit to legal',done:false},{id:'s3',text:'Incorporate feedback',done:false}],deps:[],links:[],taskNotes:[]},
+];
+
+const DEFAULT_ASSETS=[
+  {id:'a1',title:'Campaign Gantt Chart',cat:'Documents',icon:'📊',url:'https://yassercise.github.io/kdr-game-marketing-timeline/'},
+  {id:'a2',title:'KDR Brand Guidelines',cat:'Brand Assets',icon:'📄',url:''},
+  {id:'a3',title:'Hero Visual (ChatGPT approved composition)',cat:'Visuals & Design',icon:'🖼',url:''},
+  {id:'a4',title:'Sponsorship Proposal',cat:'Documents',icon:'📄',url:''},
+  {id:'a5',title:'Banner Advertising Proposal',cat:'Documents',icon:'📄',url:''},
+];
+
+let tasks=JSON.parse(JSON.stringify(DEFAULT_TASKS));
+let assets=JSON.parse(JSON.stringify(DEFAULT_ASSETS));
+let currentPage='dashboard';
+let editTaskId=null;
+let filterCat='all';
+let filterStatus='all';
+let filterOwner='all';
+let searchQ='';
+
+function load(){
+  try{const t=localStorage.getItem(STORAGE_KEY);if(t)tasks=JSON.parse(t);}catch(e){}
+  try{const a=localStorage.getItem(ASSETS_KEY);if(a)assets=JSON.parse(a);}catch(e){}
+}
+function saveTasks(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));}catch(e){}}
+function saveAssets(){try{localStorage.setItem(ASSETS_KEY,JSON.stringify(assets));}catch(e){}}
+
+function uid(){return 't'+Date.now()+Math.random().toString(36).slice(2,6);}
+function suid(){return 's'+Date.now()+Math.random().toString(36).slice(2,5);}
+
+function showPage(p){
+  currentPage=p;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-'+p).classList.add('active');
+  const titles={dashboard:'Dashboard',tasks:'All Tasks',assets:'Campaign Assets'};
+  document.getElementById('page-title').textContent=titles[p];
+  render();
+}
+
+function render(){
+  const c=document.getElementById('main-content');
+  if(currentPage==='dashboard') c.innerHTML=renderDashboard();
+  else if(currentPage==='tasks') c.innerHTML=renderTasks();
+  else if(currentPage==='assets') c.innerHTML=renderAssets();
+}
+
+// ── DASHBOARD ──
+function renderDashboard(){
+  const total=tasks.length;
+  const done=tasks.filter(t=>t.status==='done').length;
+  const inprog=tasks.filter(t=>t.status==='progress').length;
+  const blocked=tasks.filter(t=>t.status==='blocked').length;
+  const today=new Date().toISOString().split('T')[0];
+  const overdue=tasks.filter(t=>t.due&&t.due<today&&t.status!=='done').length;
+  const pct=total?Math.round(done/total*100):0;
+
+  const urgent=tasks.filter(t=>t.priority==='high'&&t.status!=='done').slice(0,5);
+  const upcoming=tasks.filter(t=>t.due&&t.due>=today&&t.status!=='done').sort((a,b)=>a.due.localeCompare(b.due)).slice(0,5);
+
+  return `
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total Tasks</div></div>
+    <div class="stat-card blue"><div class="stat-num">${inprog}</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card green"><div class="stat-num">${done}</div><div class="stat-label">Completed</div></div>
+    <div class="stat-card red"><div class="stat-num">${overdue}</div><div class="stat-label">Overdue</div></div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">Overall Progress</span><span style="font-size:12px;font-weight:700;color:#6c63ff">${pct}%</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card">
+      <div class="card-header"><span class="card-title">🔴 High Priority</span></div>
+      ${urgent.length?urgent.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5;cursor:pointer" onclick="showPage('tasks')">
+        <div class="status-dot dot-${t.status}"></div>
+        <div style="flex:1;font-size:12px;color:#2d2d44">${t.title}</div>
+        <div class="badge badge-owner">${t.owner}</div>
+      </div>`).join(''):'<div class="empty">All high priority tasks done 🎉</div>'}
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📅 Coming Up</span></div>
+      ${upcoming.length?upcoming.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5;cursor:pointer" onclick="showPage('tasks')">
+        <div class="status-dot dot-${t.status}"></div>
+        <div style="flex:1;font-size:12px;color:#2d2d44">${t.title}</div>
+        <div class="badge badge-due">${t.due}</div>
+      </div>`).join(''):'<div class="empty">No upcoming tasks</div>'}
+    </div>
+  </div>`;
+}
+
+// ── TASKS ──
+function renderTasks(){
+  const cats=[...new Set(tasks.map(t=>t.cat))];
+  let filtered=tasks.filter(t=>{
+    if(filterCat!=='all'&&t.cat!==filterCat)return false;
+    if(filterStatus!=='all'&&t.status!==filterStatus)return false;
+    if(filterOwner!=='all'&&t.owner!==filterOwner)return false;
+    if(searchQ&&!t.title.toLowerCase().includes(searchQ.toLowerCase()))return false;
+    return true;
+  });
+
+  const grouped={};
+  filtered.forEach(t=>{if(!grouped[t.cat])grouped[t.cat]=[];grouped[t.cat].push(t);});
+
+  const statusLabels={todo:'To Do',progress:'In Progress',done:'Done',blocked:'Blocked'};
+  const today=new Date().toISOString().split('T')[0];
+
+  let html=`
+  <div class="filters">
+    <input class="search-input" placeholder="Search tasks..." oninput="searchQ=this.value;render()" value="${searchQ}"/>
+    <select class="filter-select" onchange="filterCat=this.value;render()">
+      <option value="all">All Categories</option>
+      ${CATEGORIES.map(c=>`<option value="${c}"${filterCat===c?' selected':''}>${c}</option>`).join('')}
+    </select>
+    <select class="filter-select" onchange="filterStatus=this.value;render()">
+      <option value="all">All Statuses</option>
+      <option value="todo"${filterStatus==='todo'?' selected':''}>To Do</option>
+      <option value="progress"${filterStatus==='progress'?' selected':''}>In Progress</option>
+      <option value="done"${filterStatus==='done'?' selected':''}>Done</option>
+      <option value="blocked"${filterStatus==='blocked'?' selected':''}>Blocked</option>
+    </select>
+    <select class="filter-select" onchange="filterOwner=this.value;render()">
+      <option value="all">All Owners</option>
+      ${OWNERS.map(o=>`<option value="${o}"${filterOwner===o?' selected':''}>${o}</option>`).join('')}
+    </select>
+  </div>`;
+
+  if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
+
+  Object.entries(grouped).forEach(([cat,catTasks])=>{
+    const col=CAT_COLORS[cat]||'888888';
+    html+=`<div class="task-group">
+    <div class="task-group-header" onclick="toggleGroup('grp-${cat.replace(/\s+/g,'_')}')">
+      <div style="width:10px;height:10px;border-radius:50%;background:#${col};flex-shrink:0"></div>
+      <h4>${cat}</h4>
+      <span class="task-count">${catTasks.length}</span>
+      <span class="task-group-toggle" id="tgl-grp-${cat.replace(/\s+/g,'_')}">▾</span>
+    </div>
+    <div id="grp-${cat.replace(/\s+/g,'_')}">`;
+
+    catTasks.forEach(t=>{
+      const isOverdue=t.due&&t.due<today&&t.status!=='done';
+      const doneClass=t.status==='done'?'done':'';
+      const checkIcon=t.status==='done'?'✓':t.status==='progress'?'●':'';
+      const checkClass=t.status==='done'?'checked':t.status==='progress'?'in-progress':'';
+      const subtasksDone=t.subtasks.filter(s=>s.done).length;
+      const subtasksTotal=t.subtasks.length;
+      const depTitles=t.deps.map(d=>{const dep=tasks.find(x=>x.id===d);return dep?dep.title:null;}).filter(Boolean);
+
+      html+=`<div class="task-item ${doneClass}" id="task-${t.id}">
+        <div class="task-header">
+          <span class="task-expand" id="exp-${t.id}" onclick="toggleTask('${t.id}',event)">▶</span>
+          <div class="task-check ${checkClass}" onclick="cycleStatus('${t.id}',event)">${checkIcon}</div>
+          <div class="task-title">${t.title}</div>
+          <div class="task-meta">
+            ${subtasksTotal?`<span style="font-size:10px;color:#aaa">${subtasksDone}/${subtasksTotal}</span>`:''}
+            <span class="badge badge-priority-${t.priority}">${t.priority}</span>
+            <span class="badge badge-owner">${t.owner}</span>
+            ${t.due?`<span class="badge badge-due${isOverdue?' overdue':''}">${t.due}</span>`:''}
+            <button class="btn btn-secondary btn-xs" onclick="openEditTask('${t.id}',event)">Edit</button>
+            <button class="btn btn-danger btn-xs" onclick="deleteTask('${t.id}',event)">✕</button>
+          </div>
+        </div>
+        <div class="task-body" id="body-${t.id}">
+          ${t.notes?`<p style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.5">${t.notes}</p>`:''}
+          
+          ${depTitles.length?`<div class="deps-section">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Depends On</div>
+            ${depTitles.map((d,i)=>`<span class="dep-tag">🔗 ${d}<span class="dep-del" onclick="removeDep('${t.id}','${t.deps[i]}')">×</span></span>`).join('')}
+          </div>`:''}
+
+          <div style="margin-bottom:10px">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Add Dependency</div>
+            <select class="filter-select" style="font-size:11px" onchange="addDep('${t.id}',this.value);this.value=''">
+              <option value="">Link a dependency...</option>
+              ${tasks.filter(x=>x.id!==t.id&&!t.deps.includes(x.id)).map(x=>`<option value="${x.id}">${x.title}</option>`).join('')}
+            </select>
+          </div>
+
+          ${subtasksTotal?`<div class="subtasks">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>
+            ${t.subtasks.map(s=>`<div class="subtask-item">
+              <div class="subtask-check${s.done?' checked':''}" onclick="toggleSubtask('${t.id}','${s.id}')">${s.done?'✓':''}</div>
+              <span class="subtask-text${s.done?' done':''}">${s.text}</span>
+              <span class="subtask-del" onclick="deleteSubtask('${t.id}','${s.id}')">✕</span>
+            </div>`).join('')}
+          </div>`:''}
+          <div class="add-subtask">
+            <input type="text" placeholder="Add subtask..." id="sub-inp-${t.id}" onkeydown="if(event.key==='Enter')addSubtask('${t.id}')"/>
+            <button class="btn btn-secondary btn-sm" onclick="addSubtask('${t.id}')">Add</button>
+          </div>
+
+          <div style="margin-top:12px">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Notes & Links</div>
+            ${(t.taskNotes||[]).map((n,ni)=>`<div class="note-item">
+              <span class="note-del" onclick="deleteTaskNote('${t.id}',${ni})">✕</span>
+              <div class="note-meta">${n.date}</div>
+              <div class="note-text">${n.text}</div>
+            </div>`).join('')}
+            <div class="add-note" style="margin-bottom:8px">
+              <textarea placeholder="Add a note..." id="note-inp-${t.id}"></textarea>
+              <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="addTaskNote('${t.id}')">Add Note</button>
+            </div>
+            ${(t.links||[]).map((l,li)=>`<div class="link-item">
+              <span class="link-icon">🔗</span>
+              <a href="${l.url}" target="_blank" class="link-label">${l.label||l.url}</a>
+              <span class="link-del" onclick="deleteTaskLink('${t.id}',${li})">✕</span>
+            </div>`).join('')}
+            <div class="add-link">
+              <input type="text" class="inp-label" placeholder="Label" id="link-lbl-${t.id}"/>
+              <input type="text" class="inp-url" placeholder="https://..." id="link-url-${t.id}" style="flex:1"/>
+              <button class="btn btn-secondary btn-sm" onclick="addTaskLink('${t.id}')">Add Link</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+  return html;
+}
+
+// ── ASSETS ──
+function renderAssets(){
+  const cats=[...new Set(assets.map(a=>a.cat))];
+  let html=`<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+    <button class="btn btn-primary" onclick="document.getElementById('asset-modal').classList.add('open')">+ Add Asset</button>
+  </div>`;
+  if(!assets.length) return html+'<div class="empty">No assets yet. Add links to your campaign files.</div>';
+  cats.forEach(cat=>{
+    const catAssets=assets.filter(a=>a.cat===cat);
+    html+=`<div style="margin-bottom:20px">
+      <h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:10px">${cat}</h4>
+      <div class="asset-grid">
+        ${catAssets.map(a=>`<div class="asset-card">
+          <div class="asset-card-header">
+            <span class="asset-icon">${a.icon}</span>
+            <span class="asset-card-title">${a.title}</span>
+          </div>
+          ${a.url?`<a href="${a.url}" target="_blank" class="asset-card-link">${a.url.length>40?a.url.slice(0,40)+'...':a.url}</a>`:'<span style="font-size:11px;color:#ccc">No link added</span>'}
+          <div class="asset-card-actions">
+            <button class="btn btn-danger btn-xs" onclick="deleteAsset('${a.id}')">Remove</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+// ── TASK ACTIONS ──
+function cycleStatus(id,e){
+  e.stopPropagation();
+  const t=tasks.find(x=>x.id===id);
+  const cycle={todo:'progress',progress:'done',done:'todo',blocked:'todo'};
+  t.status=cycle[t.status];
+  saveTasks();render();
+}
+
+function toggleTask(id,e){
+  e.stopPropagation();
+  const body=document.getElementById('body-'+id);
+  const exp=document.getElementById('exp-'+id);
+  if(body){body.classList.toggle('open');exp&&exp.classList.toggle('open');}
+}
+
+function toggleGroup(id){
+  const el=document.getElementById(id);
+  const tgl=document.getElementById('tgl-'+id);
+  if(el){
+    const collapsed=el.style.display==='none';
+    el.style.display=collapsed?'block':'none';
+    tgl&&tgl.classList.toggle('collapsed',!collapsed);
+  }
+}
+
+function toggleSubtask(tid,sid){
+  const t=tasks.find(x=>x.id===tid);
+  const s=t.subtasks.find(x=>x.id===sid);
+  s.done=!s.done;
+  saveTasks();render();
+  // Re-open the task body
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function addSubtask(tid){
+  const inp=document.getElementById('sub-inp-'+tid);
+  if(!inp||!inp.value.trim())return;
+  const t=tasks.find(x=>x.id===tid);
+  t.subtasks.push({id:suid(),text:inp.value.trim(),done:false});
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function deleteSubtask(tid,sid){
+  const t=tasks.find(x=>x.id===tid);
+  t.subtasks=t.subtasks.filter(s=>s.id!==sid);
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function addDep(tid,depId){
+  if(!depId)return;
+  const t=tasks.find(x=>x.id===tid);
+  if(!t.deps.includes(depId))t.deps.push(depId);
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function removeDep(tid,depId){
+  const t=tasks.find(x=>x.id===tid);
+  t.deps=t.deps.filter(d=>d!==depId);
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function addTaskNote(tid){
+  const inp=document.getElementById('note-inp-'+tid);
+  if(!inp||!inp.value.trim())return;
+  const t=tasks.find(x=>x.id===tid);
+  if(!t.taskNotes)t.taskNotes=[];
+  t.taskNotes.push({text:inp.value.trim(),date:new Date().toLocaleString()});
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function deleteTaskNote(tid,idx){
+  const t=tasks.find(x=>x.id===tid);
+  t.taskNotes.splice(idx,1);
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function addTaskLink(tid){
+  const lbl=document.getElementById('link-lbl-'+tid);
+  const url=document.getElementById('link-url-'+tid);
+  if(!url||!url.value.trim())return;
+  const t=tasks.find(x=>x.id===tid);
+  if(!t.links)t.links=[];
+  t.links.push({label:lbl.value.trim()||url.value,url:url.value.trim()});
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function deleteTaskLink(tid,idx){
+  const t=tasks.find(x=>x.id===tid);
+  t.links.splice(idx,1);
+  saveTasks();render();
+  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+}
+
+function deleteTask(id,e){
+  e.stopPropagation();
+  if(!confirm('Delete this task?'))return;
+  tasks=tasks.filter(t=>t.id!==id);
+  saveTasks();render();
+}
+
+// ── MODAL ──
+function populateSelects(){
+  const catSel=document.getElementById('f-cat');
+  catSel.innerHTML=CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const ownSel=document.getElementById('f-owner');
+  ownSel.innerHTML=OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('');
+}
+
+function openAddTask(){
+  editTaskId=null;
+  populateSelects();
+  document.getElementById('modal-title').textContent='Add Task';
+  document.getElementById('f-title').value='';
+  document.getElementById('f-notes').value='';
+  document.getElementById('f-due').value='';
+  document.getElementById('f-priority').value='medium';
+  document.getElementById('f-status').value='todo';
+  document.getElementById('task-modal').classList.add('open');
+}
+
+function openEditTask(id,e){
+  e.stopPropagation();
+  editTaskId=id;
+  const t=tasks.find(x=>x.id===id);
+  populateSelects();
+  document.getElementById('modal-title').textContent='Edit Task';
+  document.getElementById('f-title').value=t.title;
+  document.getElementById('f-cat').value=t.cat;
+  document.getElementById('f-owner').value=t.owner;
+  document.getElementById('f-priority').value=t.priority;
+  document.getElementById('f-status').value=t.status;
+  document.getElementById('f-due').value=t.due||'';
+  document.getElementById('f-notes').value=t.notes||'';
+  document.getElementById('task-modal').classList.add('open');
+}
+
+function saveTask(){
+  const title=document.getElementById('f-title').value.trim();
+  if(!title){alert('Enter a task title.');return;}
+  if(editTaskId){
+    const t=tasks.find(x=>x.id===editTaskId);
+    t.title=title;
+    t.cat=document.getElementById('f-cat').value;
+    t.owner=document.getElementById('f-owner').value;
+    t.priority=document.getElementById('f-priority').value;
+    t.status=document.getElementById('f-status').value;
+    t.due=document.getElementById('f-due').value;
+    t.notes=document.getElementById('f-notes').value;
+  } else {
+    tasks.push({id:uid(),title,cat:document.getElementById('f-cat').value,owner:document.getElementById('f-owner').value,priority:document.getElementById('f-priority').value,status:document.getElementById('f-status').value,due:document.getElementById('f-due').value,notes:document.getElementById('f-notes').value,subtasks:[],deps:[],links:[],taskNotes:[]});
+  }
+  saveTasks();closeModal('task-modal');render();
+}
+
+function saveAsset(){
+  const title=document.getElementById('a-title').value.trim();
+  const url=document.getElementById('a-url').value.trim();
+  if(!title){alert('Enter an asset name.');return;}
+  assets.push({id:'a'+Date.now(),title,cat:document.getElementById('a-cat').value,icon:document.getElementById('a-icon').value,url});
+  saveAssets();closeModal('asset-modal');render();
+}
+
+function deleteAsset(id){
+  if(!confirm('Remove this asset?'))return;
+  assets=assets.filter(a=>a.id!==id);
+  saveAssets();render();
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function handleModalClick(e){if(e.target.classList.contains('modal-overlay'))closeModal(e.target.id);}
+
+load();showPage('dashboard');
+</script>
+</body>
+</html>
