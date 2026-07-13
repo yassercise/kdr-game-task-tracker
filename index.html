@@ -513,7 +513,7 @@ function renderTasks(){
     const today=new Date().toISOString().split('T')[0];
     if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
     html+=`<div class="task-group"><div class="task-group-header"><h4>Sorted by Due Date</h4><span class="task-count">${filtered.length}</span></div><div>`;
-    filtered.forEach(t=>{html+=renderTaskRow(t,today);});
+    filtered.forEach(t=>{html+=renderTaskRow(t,today,true);});
     html+='</div></div>';
     return html;
   }
@@ -524,7 +524,7 @@ function renderTasks(){
     const today=new Date().toISOString().split('T')[0];
     if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
     html+=`<div class="task-group"><div class="task-group-header"><h4>Sorted by Priority</h4><span class="task-count">${filtered.length}</span></div><div>`;
-    filtered.forEach(t=>{html+=renderTaskRow(t,today);});
+    filtered.forEach(t=>{html+=renderTaskRow(t,today,true);});
     html+='</div></div>';
     return html;
   }
@@ -558,7 +558,7 @@ function renderTasks(){
   return html;
 }
 
-function renderTaskRow(t,today){
+function renderTaskRow(t,today,showCat=false){
       const isOverdue=t.due&&t.due<today&&t.status!=='done';
       const doneClass=t.status==='done'?'done':'';
       const checkIcon=t.status==='done'?'✓':t.status==='progress'?'●':'';
@@ -575,6 +575,7 @@ function renderTaskRow(t,today){
           <div class="task-meta">
             ${subtasksTotal?`<span style="font-size:10px;color:#aaa">${subtasksDone}/${subtasksTotal}</span>`:''}
             <span class="badge badge-priority-${t.priority}">${t.priority}</span>
+            ${showCat?`<span class="badge" style="background:#f0f0f8;color:#${CAT_COLORS[t.cat]||'888'};border:1px solid #e8e8f0">${t.cat}</span>`:''}
             <span class="badge badge-owner">${t.owner}</span>
             ${t.due?`<span class="badge badge-due${isOverdue?' overdue':''}">${fmtDate(t.due)}</span>`:''}
             <button class="btn btn-secondary btn-xs" onclick="openEditTask('${t.id}',event)">Edit</button>
