@@ -399,12 +399,25 @@ function fmtDate(iso){
   return `${d}/${m}/${y}`;
 }
 
-function render(){
+let sortByDue=false;
+let sortByPriority=false;
+const openTasks=new Set();
+
+function render(preserveScroll=false){
   const c=document.getElementById('main-content');
+  const scrollTop=preserveScroll?c.scrollTop:0;
   if(currentPage==='dashboard') c.innerHTML=renderDashboard();
   else if(currentPage==='tasks') c.innerHTML=renderTasks();
   else if(currentPage==='assets') c.innerHTML=renderAssets();
   else if(currentPage==='settings') c.innerHTML=renderSettings();
+  // Restore open task bodies
+  openTasks.forEach(tid=>{
+    const b=document.getElementById('body-'+tid);
+    const e=document.getElementById('exp-'+tid);
+    if(b)b.classList.add('open');
+    if(e)e.classList.add('open');
+  });
+  if(preserveScroll) requestAnimationFrame(()=>{c.scrollTop=scrollTop;});
 }
 
 // ── DASHBOARD ──
@@ -486,7 +499,35 @@ function renderTasks(){
       <option value="all">All Owners</option>
       ${OWNERS.map(o=>`<option value="${o}"${filterOwner===o?' selected':''}>${o}</option>`).join('')}
     </select>
+    <button class="btn ${sortByDue?'btn-primary':'btn-secondary'}" onclick="sortByDue=!sortByDue;sortByPriority=false;render()" title="Sort by due date">📅 ${sortByDue?'Due Date ✓':'Due Date'}</button>
+    <button class="btn ${sortByPriority?'btn-primary':'btn-secondary'}" onclick="sortByPriority=!sortByPriority;sortByDue=false;render()" title="Sort by priority">🔴 ${sortByPriority?'Priority ✓':'Priority'}</button>
   </div>`;
+
+  if(sortByDue){
+    filtered=filtered.slice().sort((a,b)=>{
+      if(!a.due&&!b.due)return 0;
+      if(!a.due)return 1;
+      if(!b.due)return -1;
+      return a.due.localeCompare(b.due);
+    });
+    const today=new Date().toISOString().split('T')[0];
+    if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
+    html+=`<div class="task-group"><div class="task-group-header"><h4>Sorted by Due Date</h4><span class="task-count">${filtered.length}</span></div><div>`;
+    filtered.forEach(t=>{html+=renderTaskRow(t,today);});
+    html+='</div></div>';
+    return html;
+  }
+
+  if(sortByPriority){
+    const order={high:0,medium:1,low:2};
+    filtered=filtered.slice().sort((a,b)=>(order[a.priority]||1)-(order[b.priority]||1));
+    const today=new Date().toISOString().split('T')[0];
+    if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
+    html+=`<div class="task-group"><div class="task-group-header"><h4>Sorted by Priority</h4><span class="task-count">${filtered.length}</span></div><div>`;
+    filtered.forEach(t=>{html+=renderTaskRow(t,today);});
+    html+='</div></div>';
+    return html;
+  }
 
   if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
 
@@ -508,6 +549,16 @@ function renderTasks(){
 
 
     catTasks.forEach(t=>{
+      html+=renderTaskRow(t,today);
+    });
+    html+='</div></div>';
+  });
+
+  html+=`<button class="cat-add-btn" onclick="addCategoryInline()">+ Add Category</button>`;
+  return html;
+}
+
+function renderTaskRow(t,today){
       const isOverdue=t.due&&t.due<today&&t.status!=='done';
       const doneClass=t.status==='done'?'done':'';
       const checkIcon=t.status==='done'?'✓':t.status==='progress'?'●':'';
@@ -516,7 +567,7 @@ function renderTasks(){
       const subtasksTotal=t.subtasks.length;
       const depTitles=t.deps.map(d=>{const dep=tasks.find(x=>x.id===d);return dep?dep.title:null;}).filter(Boolean);
 
-      html+=`<div class="task-item ${doneClass}" id="task-${t.id}">
+      return `<div class="task-item ${doneClass}" id="task-${t.id}">
         <div class="task-header">
           <span class="task-expand" id="exp-${t.id}" onclick="toggleTask('${t.id}',event)">▶</span>
           <div class="task-check ${checkClass}" onclick="cycleStatus('${t.id}',event)">${checkIcon}</div>
@@ -592,12 +643,6 @@ function renderTasks(){
           </div>
         </div>
       </div>`;
-    });
-    html+='</div></div>';
-  });
-
-  html+=`<button class="cat-add-btn" onclick="addCategoryInline()">+ Add Category</button>`;
-  return html;
 }
 
 // ── ASSETS ──
@@ -634,14 +679,19 @@ function cycleStatus(id,e){
   const t=tasks.find(x=>x.id===id);
   const cycle={todo:'progress',progress:'done',done:'todo',blocked:'todo'};
   t.status=cycle[t.status];
-  saveTasks();render();
+  saveTasks();render(true);
 }
 
 function toggleTask(id,e){
   e.stopPropagation();
   const body=document.getElementById('body-'+id);
   const exp=document.getElementById('exp-'+id);
-  if(body){body.classList.toggle('open');exp&&exp.classList.toggle('open');}
+  if(body){
+    const isOpen=body.classList.contains('open');
+    body.classList.toggle('open');
+    exp&&exp.classList.toggle('open');
+    if(isOpen)openTasks.delete(id);else openTasks.add(id);
+  }
 }
 
 function toggleGroup(id,e){
@@ -686,7 +736,7 @@ function deleteCategoryInline(cat,e){
   if(!confirm(`Remove category "${cat}"? Tasks will keep their label.`))return;
   const cats=getCats();
   customCats=cats.filter(c=>c!==cat);
-  saveCats();render();
+  saveCats();render(true);
 }
 
 function addCategoryInline(){
@@ -695,7 +745,7 @@ function addCategoryInline(){
   const cats=getCats();
   if(cats.includes(name.trim())){alert('Already exists.');return;}
   cats.push(name.trim());
-  customCats=cats;saveCats();render();
+  customCats=cats;saveCats();render(true);
 }
 
 // Category drag-and-drop
@@ -722,16 +772,16 @@ function catGrpDrop(e,targetCat){
   cats.splice(fromIdx,1);
   cats.splice(toIdx,0,catGrpDragging);
   customCats=cats;catGrpDragging=null;
-  saveCats();render();
+  saveCats();render(true);
 }
 
 function toggleSubtask(tid,sid){
   const t=tasks.find(x=>x.id===tid);
   const s=t.subtasks.find(x=>x.id===sid);
   s.done=!s.done;
-  saveTasks();render();
+  saveTasks();render(true);
   // Re-open the task body
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  openTasks.add(tid);
 }
 
 function addSubtask(tid){
@@ -739,30 +789,30 @@ function addSubtask(tid){
   if(!inp||!inp.value.trim())return;
   const t=tasks.find(x=>x.id===tid);
   t.subtasks.push({id:suid(),text:inp.value.trim(),done:false});
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function deleteSubtask(tid,sid){
   const t=tasks.find(x=>x.id===tid);
   t.subtasks=t.subtasks.filter(s=>s.id!==sid);
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function addDep(tid,depId){
   if(!depId)return;
   const t=tasks.find(x=>x.id===tid);
   if(!t.deps.includes(depId))t.deps.push(depId);
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function removeDep(tid,depId){
   const t=tasks.find(x=>x.id===tid);
   t.deps=t.deps.filter(d=>d!==depId);
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function addTaskNote(tid){
@@ -771,15 +821,15 @@ function addTaskNote(tid){
   const t=tasks.find(x=>x.id===tid);
   if(!t.taskNotes)t.taskNotes=[];
   t.taskNotes.push({text:inp.value.trim(),date:new Date().toLocaleString()});
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function deleteTaskNote(tid,idx){
   const t=tasks.find(x=>x.id===tid);
   t.taskNotes.splice(idx,1);
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function addTaskLink(tid){
@@ -789,15 +839,15 @@ function addTaskLink(tid){
   const t=tasks.find(x=>x.id===tid);
   if(!t.links)t.links=[];
   t.links.push({label:lbl.value.trim()||url.value,url:url.value.trim()});
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function deleteTaskLink(tid,idx){
   const t=tasks.find(x=>x.id===tid);
   t.links.splice(idx,1);
-  saveTasks();render();
-  setTimeout(()=>{const b=document.getElementById('body-'+tid);if(b)b.classList.add('open');const e=document.getElementById('exp-'+tid);if(e)e.classList.add('open');},10);
+  saveTasks();render(true);
+  openTasks.add(tid);
 }
 
 function deleteTask(id,e){
@@ -963,7 +1013,7 @@ function catDrop(e,i){
   const item=cats.splice(catDragIdx,1)[0];
   cats.splice(i,0,item);
   customCats=cats;
-  saveCats();render();
+  saveCats();render(true);
 }
 
 function renameCategory(idx,newName){
@@ -974,7 +1024,7 @@ function renameCategory(idx,newName){
   // Update all tasks with this category
   tasks.forEach(t=>{if(t.cat===old)t.cat=newName.trim();});
   customCats=cats;
-  saveCats();saveTasks();render();
+  saveCats();saveTasks();render(true);
 }
 
 function deleteCategory(idx){
@@ -983,7 +1033,7 @@ function deleteCategory(idx){
   if(!confirm(`Remove category "${name}"? Tasks in this category will keep their label.`))return;
   cats.splice(idx,1);
   customCats=cats;
-  saveCats();render();
+  saveCats();render(true);
 }
 
 function addCategory(){
@@ -993,7 +1043,7 @@ function addCategory(){
   if(cats.includes(inp.value.trim())){alert('Category already exists.');return;}
   cats.push(inp.value.trim());
   customCats=cats;
-  saveCats();render();
+  saveCats();render(true);
 }
 
 // Override CATEGORIES references to use getCats()
