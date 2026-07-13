@@ -57,10 +57,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
 
 /* TASK LIST */
 .task-group{margin-bottom:20px}
-.task-group-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;user-select:none}
+.task-group-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;user-select:none;cursor:grab}
 .task-group-header h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888}
-.task-group-toggle{font-size:10px;color:#aaa;transition:transform .2s}
+.task-group-toggle{font-size:10px;color:#aaa;transition:transform .2s;cursor:pointer}
 .task-group-toggle.collapsed{transform:rotate(-90deg)}
+.cat-del-btn{color:#ddd;background:none;border:none;cursor:pointer;font-size:10px;padding:2px 6px;border-radius:3px;opacity:0;transition:opacity .15s}
+.task-group-header:hover .cat-del-btn{opacity:1}
+.cat-del-btn:hover{color:#e74c3c;background:#fff0f0}
+.cat-rename-inp{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;background:transparent;border:none;border-bottom:1.5px solid #6c63ff;outline:none;padding:0}
+.cat-add-btn{color:#aaa;background:none;border:1px dashed #ddd;cursor:pointer;font-size:11px;padding:4px 12px;border-radius:6px;margin-bottom:16px;display:block}
+.cat-add-btn:hover{color:#6c63ff;border-color:#6c63ff}
+.task-group.drag-over-cat{border-top:2px solid #6c63ff}
 .task-count{background:#f0f0f8;color:#888;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:600}
 
 .task-item{background:#fff;border-radius:10px;border:1px solid #f0f0f8;margin-bottom:6px;transition:all .15s}
@@ -207,7 +214,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
       <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="nav-icon">⊞</span> Dashboard</div>
       <div class="nav-item" onclick="showPage('tasks')" id="nav-tasks"><span class="nav-icon">✓</span> All Tasks</div>
       <div class="nav-item" onclick="showPage('assets')" id="nav-assets"><span class="nav-icon">🔗</span> Campaign Assets</div>
-      <div class="nav-item" onclick="showPage('settings')" id="nav-settings"><span class="nav-icon">⚙</span> Categories</div>
     </div>
     <div class="sidebar-bottom">
       <p>Launch: Aug 12, 2026</p>
@@ -490,14 +496,16 @@ function renderTasks(){
   Object.keys(grouped).forEach(c=>{if(!orderedGrouped[c])orderedGrouped[c]=grouped[c];});
   Object.entries(orderedGrouped).forEach(([cat,catTasks])=>{
     const col=CAT_COLORS[cat]||'888888';
-    html+=`<div class="task-group">
-    <div class="task-group-header" onclick="toggleGroup('grp-${cat.replace(/\s+/g,'_')}')">
+    html+=`<div class="task-group" draggable="true" data-cat="${cat}" ondragstart="catGrpDragStart(event,'${cat}')" ondragover="catGrpDragOver(event,this)" ondrop="catGrpDrop(event,'${cat}')">
+    <div class="task-group-header">
       <div style="width:10px;height:10px;border-radius:50%;background:#${col};flex-shrink:0"></div>
-      <h4>${cat}</h4>
+      <h4 id="cat-hdr-${cat.replace(/\s+/g,'_')}" ondblclick="startRenameCategory('${cat}',event)">${cat}</h4>
       <span class="task-count">${catTasks.length}</span>
-      <span class="task-group-toggle" id="tgl-grp-${cat.replace(/\s+/g,'_')}">▾</span>
+      <span class="task-group-toggle" id="tgl-grp-${cat.replace(/\s+/g,'_')}" onclick="toggleGroup('grp-${cat.replace(/\s+/g,'_')}',event)">▾</span>
+      <button class="cat-del-btn" onclick="deleteCategoryInline('${cat}',event)" title="Remove category">✕</button>
     </div>
     <div id="grp-${cat.replace(/\s+/g,'_')}">`;
+
 
     catTasks.forEach(t=>{
       const isOverdue=t.due&&t.due<today&&t.status!=='done';
@@ -587,6 +595,8 @@ function renderTasks(){
     });
     html+='</div></div>';
   });
+
+  html+=`<button class="cat-add-btn" onclick="addCategoryInline()">+ Add Category</button>`;
   return html;
 }
 
@@ -634,7 +644,8 @@ function toggleTask(id,e){
   if(body){body.classList.toggle('open');exp&&exp.classList.toggle('open');}
 }
 
-function toggleGroup(id){
+function toggleGroup(id,e){
+  if(e)e.stopPropagation();
   const el=document.getElementById(id);
   const tgl=document.getElementById('tgl-'+id);
   if(el){
@@ -642,6 +653,76 @@ function toggleGroup(id){
     el.style.display=collapsed?'block':'none';
     tgl&&tgl.classList.toggle('collapsed',!collapsed);
   }
+}
+
+// ── INLINE CATEGORY MANAGEMENT ──
+function startRenameCategory(cat,e){
+  e.stopPropagation();
+  const id='cat-hdr-'+cat.replace(/\s+/g,'_');
+  const h4=document.getElementById(id);
+  if(!h4)return;
+  const inp=document.createElement('input');
+  inp.className='cat-rename-inp';
+  inp.value=cat;
+  h4.replaceWith(inp);
+  inp.focus();inp.select();
+  const save=()=>{
+    const val=inp.value.trim();
+    if(val&&val!==cat){
+      const cats=getCats();
+      const idx=cats.indexOf(cat);
+      if(idx>=0)cats[idx]=val;
+      tasks.forEach(t=>{if(t.cat===cat)t.cat=val;});
+      customCats=cats;saveCats();saveTasks();
+    }
+    render();
+  };
+  inp.onblur=save;
+  inp.onkeydown=(ev)=>{if(ev.key==='Enter')inp.blur();if(ev.key==='Escape'){inp.value=cat;inp.blur();}};
+}
+
+function deleteCategoryInline(cat,e){
+  e.stopPropagation();
+  if(!confirm(`Remove category "${cat}"? Tasks will keep their label.`))return;
+  const cats=getCats();
+  customCats=cats.filter(c=>c!==cat);
+  saveCats();render();
+}
+
+function addCategoryInline(){
+  const name=prompt('New category name:');
+  if(!name||!name.trim())return;
+  const cats=getCats();
+  if(cats.includes(name.trim())){alert('Already exists.');return;}
+  cats.push(name.trim());
+  customCats=cats;saveCats();render();
+}
+
+// Category drag-and-drop
+let catGrpDragging=null;
+function catGrpDragStart(e,cat){
+  catGrpDragging=cat;
+  e.dataTransfer.effectAllowed='move';
+  e.stopPropagation();
+}
+function catGrpDragOver(e,el){
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.task-group').forEach(g=>g.classList.remove('drag-over-cat'));
+  el.classList.add('drag-over-cat');
+}
+function catGrpDrop(e,targetCat){
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.task-group').forEach(g=>g.classList.remove('drag-over-cat'));
+  if(!catGrpDragging||catGrpDragging===targetCat)return;
+  const cats=getCats();
+  const fromIdx=cats.indexOf(catGrpDragging);
+  const toIdx=cats.indexOf(targetCat);
+  if(fromIdx<0||toIdx<0)return;
+  cats.splice(fromIdx,1);
+  cats.splice(toIdx,0,catGrpDragging);
+  customCats=cats;catGrpDragging=null;
+  saveCats();render();
 }
 
 function toggleSubtask(tid,sid){
