@@ -170,6 +170,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
 /* EMPTY */
 .empty{text-align:center;padding:40px;color:#aaa;font-size:12px}
 
+/* SUBTASK EDIT */
+.subtask-edit-inp{flex:1;border:1px solid #6c63ff;border-radius:4px;padding:2px 6px;font-size:11px;outline:none}
+.subtask-notes{padding:4px 0 4px 21px;display:none}
+.subtask-notes.open{display:block}
+.subtask-note-text{font-size:10px;color:#999;font-style:italic;margin-bottom:2px;white-space:pre-wrap}
+.subtask-note-inp{width:100%;border:1px solid #e8e8f0;border-radius:5px;padding:3px 7px;font-size:10px;outline:none;margin-top:2px}
+.subtask-note-inp:focus{border-color:#6c63ff}
+.subtask-actions{display:flex;gap:4px;align-items:center}
+
+/* SETTINGS */
+.settings-card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);padding:16px;margin-bottom:16px}
+.cat-manage-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.cat-manage-item:last-child{border-bottom:none}
+.cat-drag-handle{color:#ccc;cursor:grab;font-size:14px;flex-shrink:0}
+.cat-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat-name-inp{flex:1;border:1px solid #e8e8f0;border-radius:6px;padding:4px 8px;font-size:12px;outline:none}
+.cat-name-inp:focus{border-color:#6c63ff}
+
 /* LAUNCH BADGE */
 .launch-badge{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e74c3c;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;color:#e74c3c;animation:pulse 2s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(231,76,60,.3)}70%{box-shadow:0 0 0 6px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
@@ -189,6 +207,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
       <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="nav-icon">⊞</span> Dashboard</div>
       <div class="nav-item" onclick="showPage('tasks')" id="nav-tasks"><span class="nav-icon">✓</span> All Tasks</div>
       <div class="nav-item" onclick="showPage('assets')" id="nav-assets"><span class="nav-icon">🔗</span> Campaign Assets</div>
+      <div class="nav-item" onclick="showPage('settings')" id="nav-settings"><span class="nav-icon">⚙</span> Categories</div>
     </div>
     <div class="sidebar-bottom">
       <p>Launch: Aug 12, 2026</p>
@@ -363,9 +382,15 @@ function showPage(p){
   currentPage=p;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('nav-'+p).classList.add('active');
-  const titles={dashboard:'Dashboard',tasks:'All Tasks',assets:'Campaign Assets'};
+  const titles={dashboard:'Dashboard',tasks:'All Tasks',assets:'Campaign Assets',settings:'Categories'};
   document.getElementById('page-title').textContent=titles[p];
   render();
+}
+
+function fmtDate(iso){
+  if(!iso)return '';
+  const [y,m,d]=iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function render(){
@@ -373,6 +398,7 @@ function render(){
   if(currentPage==='dashboard') c.innerHTML=renderDashboard();
   else if(currentPage==='tasks') c.innerHTML=renderTasks();
   else if(currentPage==='assets') c.innerHTML=renderAssets();
+  else if(currentPage==='settings') c.innerHTML=renderSettings();
 }
 
 // ── DASHBOARD ──
@@ -413,7 +439,7 @@ function renderDashboard(){
       ${upcoming.length?upcoming.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5;cursor:pointer" onclick="showPage('tasks')">
         <div class="status-dot dot-${t.status}"></div>
         <div style="flex:1;font-size:12px;color:#2d2d44">${t.title}</div>
-        <div class="badge badge-due">${t.due}</div>
+        <div class="badge badge-due">${fmtDate(t.due)}</div>
       </div>`).join(''):'<div class="empty">No upcoming tasks</div>'}
     </div>
   </div>`;
@@ -441,7 +467,7 @@ function renderTasks(){
     <input class="search-input" placeholder="Search tasks..." oninput="searchQ=this.value;render()" value="${searchQ}"/>
     <select class="filter-select" onchange="filterCat=this.value;render()">
       <option value="all">All Categories</option>
-      ${CATEGORIES.map(c=>`<option value="${c}"${filterCat===c?' selected':''}>${c}</option>`).join('')}
+      ${getCats().map(c=>`<option value="${c}"${filterCat===c?' selected':''}>${c}</option>`).join('')}
     </select>
     <select class="filter-select" onchange="filterStatus=this.value;render()">
       <option value="all">All Statuses</option>
@@ -458,7 +484,11 @@ function renderTasks(){
 
   if(!filtered.length) return html+'<div class="empty">No tasks match your filters.</div>';
 
-  Object.entries(grouped).forEach(([cat,catTasks])=>{
+  // Sort groups by category order
+  const orderedGrouped={};
+  getCats().forEach(c=>{if(grouped[c])orderedGrouped[c]=grouped[c];});
+  Object.keys(grouped).forEach(c=>{if(!orderedGrouped[c])orderedGrouped[c]=grouped[c];});
+  Object.entries(orderedGrouped).forEach(([cat,catTasks])=>{
     const col=CAT_COLORS[cat]||'888888';
     html+=`<div class="task-group">
     <div class="task-group-header" onclick="toggleGroup('grp-${cat.replace(/\s+/g,'_')}')">
@@ -487,7 +517,7 @@ function renderTasks(){
             ${subtasksTotal?`<span style="font-size:10px;color:#aaa">${subtasksDone}/${subtasksTotal}</span>`:''}
             <span class="badge badge-priority-${t.priority}">${t.priority}</span>
             <span class="badge badge-owner">${t.owner}</span>
-            ${t.due?`<span class="badge badge-due${isOverdue?' overdue':''}">${t.due}</span>`:''}
+            ${t.due?`<span class="badge badge-due${isOverdue?' overdue':''}">${fmtDate(t.due)}</span>`:''}
             <button class="btn btn-secondary btn-xs" onclick="openEditTask('${t.id}',event)">Edit</button>
             <button class="btn btn-danger btn-xs" onclick="deleteTask('${t.id}',event)">✕</button>
           </div>
@@ -508,12 +538,21 @@ function renderTasks(){
             </select>
           </div>
 
-          ${subtasksTotal?`<div class="subtasks">
+          ${subtasksTotal||true?`<div class="subtasks">
             <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>
-            ${t.subtasks.map(s=>`<div class="subtask-item">
-              <div class="subtask-check${s.done?' checked':''}" onclick="toggleSubtask('${t.id}','${s.id}')">${s.done?'✓':''}</div>
-              <span class="subtask-text${s.done?' done':''}">${s.text}</span>
-              <span class="subtask-del" onclick="deleteSubtask('${t.id}','${s.id}')">✕</span>
+            ${t.subtasks.map(s=>`<div>
+              <div class="subtask-item">
+                <div class="subtask-check${s.done?' checked':''}" onclick="toggleSubtask('${t.id}','${s.id}')">${s.done?'✓':''}</div>
+                <span class="subtask-text${s.done?' done':''}" id="stxt-${s.id}" onclick="startEditSubtask('${t.id}','${s.id}',event)">${s.text}</span>
+                <div class="subtask-actions">
+                  <span style="font-size:10px;color:#ccc;cursor:pointer" onclick="toggleSubtaskNote('${s.id}')" title="Note">📝</span>
+                  <span class="subtask-del" onclick="deleteSubtask('${t.id}','${s.id}')">✕</span>
+                </div>
+              </div>
+              <div class="subtask-notes" id="snotes-${s.id}">
+                ${(s.note||'')?`<div class="subtask-note-text">${s.note}</div>`:''}
+                <input class="subtask-note-inp" placeholder="Add note for this subtask..." value="${s.note||''}" onchange="saveSubtaskNote('${t.id}','${s.id}',this.value)" onblur="saveSubtaskNote('${t.id}','${s.id}',this.value)"/>
+              </div>
             </div>`).join('')}
           </div>`:''}
           <div class="add-subtask">
@@ -690,7 +729,7 @@ function deleteTask(id,e){
 // ── MODAL ──
 function populateSelects(){
   const catSel=document.getElementById('f-cat');
-  catSel.innerHTML=CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  catSel.innerHTML=getCats().map(c=>`<option value="${c}">${c}</option>`).join('');
   const ownSel=document.getElementById('f-owner');
   ownSel.innerHTML=OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('');
 }
@@ -757,6 +796,127 @@ function deleteAsset(id){
 
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function handleModalClick(e){if(e.target.classList.contains('modal-overlay'))closeModal(e.target.id);}
+
+// ── SUBTASK EDIT ──
+function startEditSubtask(tid,sid,e){
+  e.stopPropagation();
+  const span=document.getElementById('stxt-'+sid);
+  if(!span)return;
+  const t=tasks.find(x=>x.id===tid);
+  const s=t.subtasks.find(x=>x.id===sid);
+  const inp=document.createElement('input');
+  inp.className='subtask-edit-inp';
+  inp.value=s.text;
+  span.replaceWith(inp);
+  inp.focus();
+  inp.select();
+  const save=()=>{
+    const val=inp.value.trim();
+    if(val)s.text=val;
+    saveTasks();
+    const newSpan=document.createElement('span');
+    newSpan.className='subtask-text'+(s.done?' done':'');
+    newSpan.id='stxt-'+sid;
+    newSpan.textContent=s.text;
+    newSpan.onclick=(ev)=>startEditSubtask(tid,sid,ev);
+    inp.replaceWith(newSpan);
+  };
+  inp.onblur=save;
+  inp.onkeydown=(ev)=>{if(ev.key==='Enter')inp.blur();if(ev.key==='Escape'){inp.value=s.text;inp.blur();}};
+}
+
+function toggleSubtaskNote(sid){
+  const el=document.getElementById('snotes-'+sid);
+  if(el)el.classList.toggle('open');
+}
+
+function saveSubtaskNote(tid,sid,val){
+  const t=tasks.find(x=>x.id===tid);
+  const s=t.subtasks.find(x=>x.id===sid);
+  s.note=val;
+  saveTasks();
+}
+
+// ── CATEGORY SETTINGS ──
+const CATS_KEY='kdr-cats-v1';
+let customCats=null;
+
+function getCats(){
+  if(customCats)return customCats;
+  try{const c=localStorage.getItem(CATS_KEY);if(c)customCats=JSON.parse(c);}catch(e){}
+  if(!customCats)customCats=[...CATEGORIES];
+  return customCats;
+}
+
+function saveCats(){
+  try{localStorage.setItem(CATS_KEY,JSON.stringify(customCats));}catch(e){}
+}
+
+function renderSettings(){
+  const cats=getCats();
+  return `<div class="settings-card">
+    <div class="card-header"><span class="card-title">Manage Categories</span></div>
+    <p style="font-size:11px;color:#888;margin-bottom:12px">Rename, reorder, or remove categories. Drag to reorder.</p>
+    <div id="cat-list">
+      ${cats.map((c,i)=>`<div class="cat-manage-item" draggable="true" data-idx="${i}" ondragstart="catDragStart(event,${i})" ondragover="catDragOver(event,${i})" ondrop="catDrop(event,${i})">
+        <span class="cat-drag-handle">⠿</span>
+        <div class="cat-color-dot" style="background:#${CAT_COLORS[c]||'888888'}"></div>
+        <input class="cat-name-inp" value="${c}" onblur="renameCategory(${i},this.value)" onkeydown="if(event.key==='Enter')this.blur()"/>
+        <button class="btn btn-danger btn-xs" onclick="deleteCategory(${i})">Remove</button>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input class="form-input" id="new-cat-inp" placeholder="New category name..." style="flex:1;padding:6px 10px;font-size:12px"/>
+      <button class="btn btn-primary" onclick="addCategory()">Add Category</button>
+    </div>
+  </div>`;
+}
+
+let catDragIdx=null;
+function catDragStart(e,i){catDragIdx=i;e.dataTransfer.effectAllowed='move';}
+function catDragOver(e,i){e.preventDefault();}
+function catDrop(e,i){
+  e.preventDefault();
+  if(catDragIdx===null||catDragIdx===i)return;
+  const cats=getCats();
+  const item=cats.splice(catDragIdx,1)[0];
+  cats.splice(i,0,item);
+  customCats=cats;
+  saveCats();render();
+}
+
+function renameCategory(idx,newName){
+  const cats=getCats();
+  const old=cats[idx];
+  if(!newName.trim()||newName===old)return;
+  cats[idx]=newName.trim();
+  // Update all tasks with this category
+  tasks.forEach(t=>{if(t.cat===old)t.cat=newName.trim();});
+  customCats=cats;
+  saveCats();saveTasks();render();
+}
+
+function deleteCategory(idx){
+  const cats=getCats();
+  const name=cats[idx];
+  if(!confirm(`Remove category "${name}"? Tasks in this category will keep their label.`))return;
+  cats.splice(idx,1);
+  customCats=cats;
+  saveCats();render();
+}
+
+function addCategory(){
+  const inp=document.getElementById('new-cat-inp');
+  if(!inp||!inp.value.trim())return;
+  const cats=getCats();
+  if(cats.includes(inp.value.trim())){alert('Category already exists.');return;}
+  cats.push(inp.value.trim());
+  customCats=cats;
+  saveCats();render();
+}
+
+// Override CATEGORIES references to use getCats()
+const _origRenderTasks=renderTasks;
 
 load();showPage('dashboard');
 </script>
