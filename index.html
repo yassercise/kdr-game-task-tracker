@@ -73,6 +73,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
 .task-item{background:#fff;border-radius:10px;border:1px solid #f0f0f8;margin-bottom:6px;transition:all .15s}
 .task-item:hover{border-color:#e0e0f0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
 .task-item.done .task-title{text-decoration:line-through;color:#aaa}
+.task-item.task-dragging{opacity:.4}
+.task-item.task-drag-over{border-top:2px solid #6c63ff;margin-top:0}
+.task-drag-handle{color:#ddd;cursor:grab;font-size:13px;flex-shrink:0;padding:0 4px}
+.task-drag-handle:hover{color:#aaa}
 .task-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
 .task-expand{color:#ccc;font-size:11px;transition:transform .2s;flex-shrink:0}
 .task-expand.open{transform:rotate(90deg)}
@@ -604,8 +608,13 @@ function renderTaskRow(t,today,showCat=false){
       const subtasksTotal=t.subtasks.length;
       const depTitles=t.deps.map(d=>{const dep=tasks.find(x=>x.id===d);return dep?dep.title:null;}).filter(Boolean);
 
-      return `<div class="task-item ${doneClass}" id="task-${t.id}">
+      return `<div class="task-item ${doneClass}" id="task-${t.id}" draggable="true" data-id="${t.id}" data-cat="${t.cat}"
+        ondragstart="taskDragStart(event,'${t.id}')"
+        ondragover="taskDragOver(event,this)"
+        ondrop="taskDrop(event,'${t.id}')"
+        ondragend="taskDragEnd()">
         <div class="task-header">
+          <span class="task-drag-handle" title="Drag to reorder">⠿</span>
           <span class="task-expand" id="exp-${t.id}" onclick="toggleTask('${t.id}',event)">▶</span>
           <div class="task-check ${checkClass}" onclick="cycleStatus('${t.id}',event)">${checkIcon}</div>
           <div class="task-title">${t.title}</div>
@@ -1017,6 +1026,45 @@ function saveSubtaskNote(tid,sid,val){
   const s=t.subtasks.find(x=>x.id===sid);
   s.note=val;
   saveTasks();
+}
+
+// ── TASK DRAG & DROP ──
+let taskDraggingId=null;
+
+function taskDragStart(e,id){
+  taskDraggingId=id;
+  e.dataTransfer.effectAllowed='move';
+  e.stopPropagation();
+  setTimeout(()=>{const el=document.getElementById('task-'+id);if(el)el.classList.add('task-dragging');},0);
+}
+
+function taskDragOver(e,el){
+  e.preventDefault();
+  e.stopPropagation();
+  if(el.dataset.id===taskDraggingId)return;
+  document.querySelectorAll('.task-item').forEach(x=>x.classList.remove('task-drag-over'));
+  el.classList.add('task-drag-over');
+}
+
+function taskDrop(e,targetId){
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.task-item').forEach(x=>{x.classList.remove('task-drag-over');x.classList.remove('task-dragging');});
+  if(!taskDraggingId||taskDraggingId===targetId)return;
+  const src=tasks.find(x=>x.id===taskDraggingId);
+  const tgt=tasks.find(x=>x.id===targetId);
+  if(!src||!tgt||src.cat!==tgt.cat)return;
+  const fromIdx=tasks.indexOf(src);
+  const toIdx=tasks.indexOf(tgt);
+  tasks.splice(fromIdx,1);
+  tasks.splice(toIdx,0,src);
+  taskDraggingId=null;
+  saveTasks();render(true);
+}
+
+function taskDragEnd(){
+  document.querySelectorAll('.task-item').forEach(x=>{x.classList.remove('task-dragging');x.classList.remove('task-drag-over');});
+  taskDraggingId=null;
 }
 
 // ── SUBTASK DRAG & DROP ──
