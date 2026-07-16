@@ -561,6 +561,29 @@ function renderTasks(){
   return html;
 }
 
+function renderSubtasks(t){
+  if(!t.subtasks.length) return '';
+  const today=new Date().toISOString().split('T')[0];
+  let h='<div class="subtasks"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>';
+  t.subtasks.forEach(function(s){
+    const ov=s.due&&s.due<today&&!s.done;
+    const df=s.due?fmtDate(s.due):'+ date';
+    h+='<div><div class="subtask-item">'
+      +'<div class="subtask-check'+(s.done?' checked':'')+'" onclick="toggleSubtask(\''+t.id+'\',\''+s.id+'\')">'+(s.done?'✓':'')+'</div>'
+      +'<span class="subtask-text'+(s.done?' done':'')+'" id="stxt-'+s.id+'" onclick="startEditSubtask(\''+t.id+'\',\''+s.id+'\',event)">'+s.text+'</span>'
+      +'<div class="subtask-actions">'
+      +'<span class="subtask-due'+(ov?' overdue':'')+'" id="sdue-'+s.id+'" onclick="editSubtaskDue(\''+t.id+'\',\''+s.id+'\',event)" title="Set due date">'+df+'</span>'
+      +'<span style="font-size:10px;color:#ccc;cursor:pointer" onclick="toggleSubtaskNote(\''+s.id+'\')" title="Note">📝</span>'
+      +'<span class="subtask-del" onclick="deleteSubtask(\''+t.id+'\',\''+s.id+'\')">✕</span>'
+      +'</div></div>'
+      +'<div class="subtask-notes" id="snotes-'+s.id+'">'
+      +(s.note?'<div class="subtask-note-text">'+s.note+'</div>':'')
+      +'<input class="subtask-note-inp" placeholder="Add note..." value="'+(s.note||'')+'" onchange="saveSubtaskNote(\''+t.id+'\',\''+s.id+'\',this.value)" onblur="saveSubtaskNote(\''+t.id+'\',\''+s.id+'\',this.value)"/>'
+      +'</div></div>';
+  });
+  return h+'</div>';
+}
+
 function renderTaskRow(t,today,showCat=false){
       const isOverdue=t.due&&t.due<today&&t.status!=='done';
       const doneClass=t.status==='done'?'done':'';
@@ -601,29 +624,7 @@ function renderTaskRow(t,today,showCat=false){
             </select>
           </div>
 
-          ${(function(){
-            if(!t.subtasks.length) return '';
-            const today2=new Date().toISOString().split('T')[0];
-            let sh='<div class="subtasks"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>';
-            t.subtasks.forEach(function(s){
-              const isOverdue=s.due&&s.due<today2&&!s.done;
-              const dueFmt=s.due?fmtDate(s.due):'+ date';
-              sh+='<div><div class="subtask-item">'
-                +'<div class="subtask-check'+(s.done?' checked':'')+'" onclick="toggleSubtask(\''+t.id+'\',\''+s.id+'\')">'+(s.done?'✓':'')+'</div>'
-                +'<span class="subtask-text'+(s.done?' done':'')+'" id="stxt-'+s.id+'" onclick="startEditSubtask(\''+t.id+'\',\''+s.id+'\',event)">'+s.text+'</span>'
-                +'<div class="subtask-actions">'
-                +'<span class="subtask-due'+(isOverdue?' overdue':'')+'" id="sdue-'+s.id+'" onclick="editSubtaskDue(\''+t.id+'\',\''+s.id+'\',event)" title="Set due date">'+dueFmt+'</span>'
-                +'<span style="font-size:10px;color:#ccc;cursor:pointer" onclick="toggleSubtaskNote(\''+s.id+'\')" title="Note">📝</span>'
-                +'<span class="subtask-del" onclick="deleteSubtask(\''+t.id+'\',\''+s.id+'\')">✕</span>'
-                +'</div></div>'
-                +'<div class="subtask-notes" id="snotes-'+s.id+'">'
-                +((s.note||'')?'<div class="subtask-note-text">'+s.note+'</div>':'')
-                +'<input class="subtask-note-inp" placeholder="Add note for this subtask..." value="'+(s.note||'')+'" onchange="saveSubtaskNote(\''+t.id+'\',\''+s.id+'\',this.value)" onblur="saveSubtaskNote(\''+t.id+'\',\''+s.id+'\',this.value)"/>'
-                +'</div></div>';
-            });
-            sh+='</div>';
-            return sh;
-          })()}
+          ${renderSubtasks(t)}
           <div class="add-subtask">
             <input type="text" placeholder="Add subtask..." id="sub-inp-${t.id}" onkeydown="if(event.key==='Enter')addSubtask('${t.id}')"/>
             <button class="btn btn-secondary btn-sm" onclick="addSubtask('${t.id}')">Add</button>
@@ -994,7 +995,8 @@ function editSubtaskDue(tid,sid,e){
   inp.onblur=save;
   inp.onchange=save;
 }
-  const el=document.getElementById('snotes-'+sid);
+
+function toggleSubtaskNote(sid){
   if(el)el.classList.toggle('open');
 }
 
