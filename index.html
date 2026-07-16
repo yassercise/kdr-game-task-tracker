@@ -184,7 +184,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
 .subtask-note-text{font-size:10px;color:#999;font-style:italic;margin-bottom:2px;white-space:pre-wrap}
 .subtask-note-inp{width:100%;border:1px solid #e8e8f0;border-radius:5px;padding:3px 7px;font-size:10px;outline:none;margin-top:2px}
 .subtask-note-inp:focus{border-color:#6c63ff}
-.subtask-actions{display:flex;gap:4px;align-items:center}
+.subtask-due{font-size:10px;color:#aaa;white-space:nowrap;cursor:pointer;padding:1px 5px;border-radius:4px;border:1px solid #eee}
+.subtask-due:hover{border-color:#6c63ff;color:#6c63ff}
+.subtask-due.overdue{color:#e74c3c;border-color:#fdd}
+.subtask-due-inp{font-size:10px;border:1px solid #6c63ff;border-radius:4px;padding:1px 4px;outline:none;color:#555}
 
 /* SETTINGS */
 .settings-card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);padding:16px;margin-bottom:16px}
@@ -600,11 +603,16 @@ function renderTaskRow(t,today,showCat=false){
 
           ${subtasksTotal||true?`<div class="subtasks">
             <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>
-            ${t.subtasks.map(s=>`<div>
+            ${t.subtasks.map(s=>{
+              const today=new Date().toISOString().split('T')[0];
+              const isOverdue=s.due&&s.due<today&&!s.done;
+              const dueFmt=s.due?fmtDate(s.due):'+ date';
+              return `<div>
               <div class="subtask-item">
                 <div class="subtask-check${s.done?' checked':''}" onclick="toggleSubtask('${t.id}','${s.id}')">${s.done?'✓':''}</div>
                 <span class="subtask-text${s.done?' done':''}" id="stxt-${s.id}" onclick="startEditSubtask('${t.id}','${s.id}',event)">${s.text}</span>
                 <div class="subtask-actions">
+                  <span class="subtask-due${isOverdue?' overdue':''}" id="sdue-${s.id}" onclick="editSubtaskDue('${t.id}','${s.id}',event)" title="Set due date">${dueFmt}</span>
                   <span style="font-size:10px;color:#ccc;cursor:pointer" onclick="toggleSubtaskNote('${s.id}')" title="Note">📝</span>
                   <span class="subtask-del" onclick="deleteSubtask('${t.id}','${s.id}')">✕</span>
                 </div>
@@ -613,7 +621,7 @@ function renderTaskRow(t,today,showCat=false){
                 ${(s.note||'')?`<div class="subtask-note-text">${s.note}</div>`:''}
                 <input class="subtask-note-inp" placeholder="Add note for this subtask..." value="${s.note||''}" onchange="saveSubtaskNote('${t.id}','${s.id}',this.value)" onblur="saveSubtaskNote('${t.id}','${s.id}',this.value)"/>
               </div>
-            </div>`).join('')}
+            </div>`;}).join('')}
           </div>`:''}
           <div class="add-subtask">
             <input type="text" placeholder="Add subtask..." id="sub-inp-${t.id}" onkeydown="if(event.key==='Enter')addSubtask('${t.id}')"/>
@@ -957,7 +965,34 @@ function startEditSubtask(tid,sid,e){
   inp.onkeydown=(ev)=>{if(ev.key==='Enter')inp.blur();if(ev.key==='Escape'){inp.value=s.text;inp.blur();}};
 }
 
-function toggleSubtaskNote(sid){
+function editSubtaskDue(tid,sid,e){
+  e.stopPropagation();
+  const span=document.getElementById('sdue-'+sid);
+  if(!span)return;
+  const t=tasks.find(x=>x.id===tid);
+  const s=t.subtasks.find(x=>x.id===sid);
+  const inp=document.createElement('input');
+  inp.type='date';
+  inp.className='subtask-due-inp';
+  inp.value=s.due||'';
+  span.replaceWith(inp);
+  inp.focus();
+  const save=()=>{
+    s.due=inp.value||'';
+    saveTasks();
+    const today=new Date().toISOString().split('T')[0];
+    const isOverdue=s.due&&s.due<today&&!s.done;
+    const newSpan=document.createElement('span');
+    newSpan.className='subtask-due'+(isOverdue?' overdue':'');
+    newSpan.id='sdue-'+sid;
+    newSpan.title='Set due date';
+    newSpan.textContent=s.due?fmtDate(s.due):'+ date';
+    newSpan.onclick=(ev)=>editSubtaskDue(tid,sid,ev);
+    inp.replaceWith(newSpan);
+  };
+  inp.onblur=save;
+  inp.onchange=save;
+}
   const el=document.getElementById('snotes-'+sid);
   if(el)el.classList.toggle('open');
 }
