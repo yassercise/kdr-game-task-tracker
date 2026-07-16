@@ -99,8 +99,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
 
 /* SUBTASKS */
 .subtasks{margin-bottom:10px}
-.subtask-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f5f5}
+.subtask-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f5f5;cursor:default}
 .subtask-item:last-child{border-bottom:none}
+.subtask-item.dragging{opacity:.4}
+.subtask-item.drag-over-sub{border-top:2px solid #6c63ff}
+.subtask-drag{color:#ddd;cursor:grab;font-size:12px;flex-shrink:0}
+.subtask-drag:hover{color:#aaa}
 .subtask-check{width:13px;height:13px;border-radius:3px;border:1.5px solid #ddd;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
 .subtask-check.checked{background:#27ae60;border-color:#27ae60;color:#fff}
 .subtask-text{font-size:11px;color:#555;flex:1}
@@ -184,9 +188,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fo
 .subtask-note-text{font-size:10px;color:#999;font-style:italic;margin-bottom:2px;white-space:pre-wrap}
 .subtask-note-inp{width:100%;border:1px solid #e8e8f0;border-radius:5px;padding:3px 7px;font-size:10px;outline:none;margin-top:2px}
 .subtask-note-inp:focus{border-color:#6c63ff}
-.subtask-due{font-size:10px;color:#aaa;white-space:nowrap;cursor:pointer;padding:1px 5px;border-radius:4px;border:1px solid #eee}
-.subtask-due:hover{border-color:#6c63ff;color:#6c63ff}
-.subtask-due.overdue{color:#e74c3c;border-color:#fdd}
+.subtask-due{font-size:10px;white-space:nowrap;cursor:pointer;padding:2px 7px;border-radius:10px;font-weight:600;border:1px solid #e0e0f0;color:#6c63ff;background:#f0f0ff}
+.subtask-due.empty{color:#bbb;background:#f5f5f5;border-color:#eee;font-weight:400}
+.subtask-due:hover{border-color:#6c63ff;background:#e8e8ff;color:#5a52d5}
+.subtask-due.overdue{color:#e74c3c;border-color:#fdd;background:#fff0f0}
 .subtask-due-inp{font-size:10px;border:1px solid #6c63ff;border-radius:4px;padding:1px 4px;outline:none;color:#555}
 
 /* SETTINGS */
@@ -568,11 +573,17 @@ function renderSubtasks(t){
   t.subtasks.forEach(function(s){
     const ov=s.due&&s.due<today&&!s.done;
     const df=s.due?fmtDate(s.due):'+ date';
-    h+='<div><div class="subtask-item">'
+    const emptyDue=!s.due?' empty':'';
+    h+='<div><div class="subtask-item" draggable="true" data-sid="'+s.id+'" data-tid="'+t.id+'"'
+      +' ondragstart="subDragStart(event,\''+t.id+'\',\''+s.id+'\')"'
+      +' ondragover="subDragOver(event,this)"'
+      +' ondrop="subDrop(event,\''+t.id+'\',\''+s.id+'\')"'
+      +' ondragend="subDragEnd()">'
+      +'<span class="subtask-drag">⠿</span>'
       +'<div class="subtask-check'+(s.done?' checked':'')+'" onclick="toggleSubtask(\''+t.id+'\',\''+s.id+'\')">'+(s.done?'✓':'')+'</div>'
       +'<span class="subtask-text'+(s.done?' done':'')+'" id="stxt-'+s.id+'" onclick="startEditSubtask(\''+t.id+'\',\''+s.id+'\',event)">'+s.text+'</span>'
       +'<div class="subtask-actions">'
-      +'<span class="subtask-due'+(ov?' overdue':'')+'" id="sdue-'+s.id+'" onclick="editSubtaskDue(\''+t.id+'\',\''+s.id+'\',event)" title="Set due date">'+df+'</span>'
+      +'<span class="subtask-due'+emptyDue+(ov?' overdue':'')+'" id="sdue-'+s.id+'" onclick="editSubtaskDue(\''+t.id+'\',\''+s.id+'\',event)" title="Set due date">'+df+'</span>'
       +'<span style="font-size:10px;color:#ccc;cursor:pointer" onclick="toggleSubtaskNote(\''+s.id+'\')" title="Note">📝</span>'
       +'<span class="subtask-del" onclick="deleteSubtask(\''+t.id+'\',\''+s.id+'\')">✕</span>'
       +'</div></div>'
@@ -984,8 +995,9 @@ function editSubtaskDue(tid,sid,e){
     saveTasks();
     const today=new Date().toISOString().split('T')[0];
     const isOverdue=s.due&&s.due<today&&!s.done;
+    const isEmpty=!s.due;
     const newSpan=document.createElement('span');
-    newSpan.className='subtask-due'+(isOverdue?' overdue':'');
+    newSpan.className='subtask-due'+(isEmpty?' empty':'')+(isOverdue?' overdue':'');
     newSpan.id='sdue-'+sid;
     newSpan.title='Set due date';
     newSpan.textContent=s.due?fmtDate(s.due):'+ date';
@@ -1007,7 +1019,40 @@ function saveSubtaskNote(tid,sid,val){
   saveTasks();
 }
 
-// ── CATEGORY SETTINGS ──
+// ── SUBTASK DRAG & DROP ──
+let subDraggingId=null;
+let subDraggingTid=null;
+
+function subDragStart(e,tid,sid){
+  subDraggingId=sid;
+  subDraggingTid=tid;
+  e.dataTransfer.effectAllowed='move';
+  e.target.closest('.subtask-item').classList.add('dragging');
+}
+
+function subDragOver(e,el){
+  e.preventDefault();
+  document.querySelectorAll('.subtask-item').forEach(x=>x.classList.remove('drag-over-sub'));
+  el.classList.add('drag-over-sub');
+}
+
+function subDrop(e,tid,sid){
+  e.preventDefault();
+  document.querySelectorAll('.subtask-item').forEach(x=>x.classList.remove('drag-over-sub'));
+  if(!subDraggingId||subDraggingId===sid||subDraggingTid!==tid)return;
+  const t=tasks.find(x=>x.id===tid);
+  const fromIdx=t.subtasks.findIndex(s=>s.id===subDraggingId);
+  const toIdx=t.subtasks.findIndex(s=>s.id===sid);
+  if(fromIdx<0||toIdx<0)return;
+  const item=t.subtasks.splice(fromIdx,1)[0];
+  t.subtasks.splice(toIdx,0,item);
+  subDraggingId=null;subDraggingTid=null;
+  saveTasks();render(true);
+}
+
+function subDragEnd(){
+  document.querySelectorAll('.subtask-item').forEach(x=>{x.classList.remove('dragging');x.classList.remove('drag-over-sub');});
+}
 const CATS_KEY='kdr-cats-v1';
 let customCats=null;
 
