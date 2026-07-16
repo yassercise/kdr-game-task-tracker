@@ -601,13 +601,14 @@ function renderTaskRow(t,today,showCat=false){
             </select>
           </div>
 
-          ${subtasksTotal||true?`<div class="subtasks">
-            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>
-            ${t.subtasks.map(s=>{
-              const today2=new Date().toISOString().split('T')[0];
+          ${(function(){
+            if(!t.subtasks.length) return '';
+            const today2=new Date().toISOString().split('T')[0];
+            let sh='<div class="subtasks"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Subtasks</div>';
+            t.subtasks.forEach(function(s){
               const isOverdue=s.due&&s.due<today2&&!s.done;
               const dueFmt=s.due?fmtDate(s.due):'+ date';
-              return '<div><div class="subtask-item">'
+              sh+='<div><div class="subtask-item">'
                 +'<div class="subtask-check'+(s.done?' checked':'')+'" onclick="toggleSubtask(\''+t.id+'\',\''+s.id+'\')">'+(s.done?'✓':'')+'</div>'
                 +'<span class="subtask-text'+(s.done?' done':'')+'" id="stxt-'+s.id+'" onclick="startEditSubtask(\''+t.id+'\',\''+s.id+'\',event)">'+s.text+'</span>'
                 +'<div class="subtask-actions">'
@@ -619,8 +620,10 @@ function renderTaskRow(t,today,showCat=false){
                 +((s.note||'')?'<div class="subtask-note-text">'+s.note+'</div>':'')
                 +'<input class="subtask-note-inp" placeholder="Add note for this subtask..." value="'+(s.note||'')+'" onchange="saveSubtaskNote(\''+t.id+'\',\''+s.id+'\',this.value)" onblur="saveSubtaskNote(\''+t.id+'\',\''+s.id+'\',this.value)"/>'
                 +'</div></div>';
-            }).join('')}
-          </div>`:''}
+            });
+            sh+='</div>';
+            return sh;
+          })()}
           <div class="add-subtask">
             <input type="text" placeholder="Add subtask..." id="sub-inp-${t.id}" onkeydown="if(event.key==='Enter')addSubtask('${t.id}')"/>
             <button class="btn btn-secondary btn-sm" onclick="addSubtask('${t.id}')">Add</button>
